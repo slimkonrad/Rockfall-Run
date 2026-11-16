@@ -26,11 +26,19 @@ public class PlayerController : MonoBehaviour
 
     [Header("Visuals")]
     [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private Animator animator;
     [Tooltip("Dust puff at the player's feet, fired with Emit() on every jump.")]
     [SerializeField] private ParticleSystem jumpDust;
     [SerializeField] private int jumpDustCount = 10;
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip jumpSound;
     [Tooltip("Tick this if the original sprite art faces right. Leave it unticked if it faces left.")]
     [SerializeField] private bool spriteFacesRight = false;
+
+    private static readonly int SpeedParam = Animator.StringToHash("Speed");
+    private static readonly int IsGroundedParam = Animator.StringToHash("IsGrounded");
+    private static readonly int VerticalVelocityParam = Animator.StringToHash("VerticalVelocity");
 
     private Rigidbody2D rb;
     private bool isGrounded;
@@ -67,6 +75,7 @@ public class PlayerController : MonoBehaviour
         }
 
         UpdateFacing();
+        UpdateAnimator();
     }
 
     private void Jump()
@@ -74,6 +83,7 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         isGrounded = false;
         jumpDust.Emit(jumpDustCount);
+        AudioManager.PlaySound(jumpSound);
     }
 
     private void FixedUpdate()
@@ -119,6 +129,14 @@ public class PlayerController : MonoBehaviour
             spriteRenderer.flipX = spriteFacesRight;
         }
         // When no key is held, keep facing the last direction.
+    }
+
+    /// <summary>Sends the current movement state to the Animator, which picks idle/walk, jump, or fall.</summary>
+    private void UpdateAnimator()
+    {
+        animator.SetFloat(SpeedParam, Mathf.Abs(rb.linearVelocity.x));
+        animator.SetBool(IsGroundedParam, isGrounded);
+        animator.SetFloat(VerticalVelocityParam, rb.linearVelocity.y);
     }
 
     /// <summary>Draws the ground check circle in the Scene view so it is easy to position.</summary>

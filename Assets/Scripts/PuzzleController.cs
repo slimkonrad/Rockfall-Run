@@ -20,6 +20,9 @@ public class PuzzleController : MonoBehaviour
     [Tooltip("Placed at the gate and fired with Play() when the gate opens.")]
     [SerializeField] private ParticleSystem gateBurst;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip gateOpenSound;
+
     private PuzzleTracker tracker;
 
     private void Awake()
@@ -44,6 +47,7 @@ public class PuzzleController : MonoBehaviour
     public void Collect(CollectibleData data, string pieceId, Vector3 position)
     {
         PlayPickupBurst(data.BurstColor, position);
+        AudioManager.PlaySound(data.PickupSound);
         tracker.AddScore(data.Points);
 
         if (data.CountsTowardPuzzle)
@@ -73,5 +77,6 @@ public class PuzzleController : MonoBehaviour
     {
         gate.SetActive(false);
         gateBurst.Play();
+        AudioManager.PlaySound(gateOpenSound);
     }
 }

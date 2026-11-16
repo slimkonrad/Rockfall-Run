@@ -15,3 +15,5 @@ MonoBehaviour:
   displayName: Key
   points: 50
   countsTowardPuzzle: 1
+  burstColor: {r: 0.9528302, g: 0.74037665, b: 0.06741722, a: 1}
+  pickupSound: {fileID: 8300000, guid: aa1ad3c5b89533e49a459fb715466b39, type: 3}

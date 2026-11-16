@@ -15,9 +15,11 @@ public class CollectibleData : ScriptableObject
     [SerializeField] private bool countsTowardPuzzle;
     [Tooltip("Color of the sparkle burst when this is picked up.")]
     [SerializeField] private Color burstColor = Color.white;
+    [SerializeField] private AudioClip pickupSound;
 
     public string DisplayName => displayName;
     public int Points => points;
     public bool CountsTowardPuzzle => countsTowardPuzzle;
     public Color BurstColor => burstColor;
+    public AudioClip PickupSound => pickupSound;
 }
