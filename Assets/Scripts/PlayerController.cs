@@ -3,10 +3,10 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Moves the player left/right and handles jumping using actions from an Input Actions asset.
-/// Movement is physics-based through Rigidbody2D. The player can only jump while standing
-/// on something tagged "Ground".
+/// Movement is physics-based through Rigidbody2D. A Physics2D.OverlapCircle at the player's feet
+/// checks for ground, so the player can only jump while standing on something.
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D), typeof(SpriteRenderer))]
+[RequireComponent(typeof(Rigidbody2D))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
@@ -18,18 +18,23 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jumpForce = 14f;
     [SerializeField] private float fastFallSpeed = 15f;
 
+    [Header("Ground Check")]
+    [Tooltip("Empty child object placed at the player's feet.")]
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float groundCheckRadius = 0.15f;
+    [SerializeField] private LayerMask groundLayer;
+
     [Header("Visuals")]
+    [SerializeField] private SpriteRenderer spriteRenderer;
     [Tooltip("Tick this if the original sprite art faces right. Leave it unticked if it faces left.")]
     [SerializeField] private bool spriteFacesRight = false;
 
     private Rigidbody2D rb;
-    private SpriteRenderer spriteRenderer;
     private bool isGrounded;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     private void OnEnable()
@@ -64,6 +69,8 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        CheckGround();
+
         // Physics movement belongs in FixedUpdate.
         Vector2 moveInput = moveAction.action.ReadValue<Vector2>();
         float yVelocity = rb.linearVelocity.y;
@@ -77,22 +84,14 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, yVelocity);
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    /// <summary>
+    /// Grounded only when the feet overlap the Ground layer and the player isn't still rising,
+    /// so the jump can't be re-triggered in the first moments after leaving the ground.
+    /// </summary>
+    private void CheckGround()
     {
-        UpdateGrounded(collision);
-    }
-
-    private void OnCollisionStay2D(Collision2D collision)
-    {
-        UpdateGrounded(collision);
-    }
-
-    private void OnCollisionExit2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Ground"))
-        {
-            isGrounded = false;
-        }
+        bool feetOnGround = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        isGrounded = feetOnGround && rb.linearVelocity.y <= 0.01f;
     }
 
     /// <summary>
@@ -113,26 +112,15 @@ public class PlayerController : MonoBehaviour
         // When no key is held, keep facing the last direction.
     }
 
-    /// <summary>
-    /// The player is grounded only when touching Ground from above, so touching a wall
-    /// does not allow wall-jumping.
-    /// </summary>
-    private void UpdateGrounded(Collision2D collision)
+    /// <summary>Draws the ground check circle in the Scene view so it is easy to position.</summary>
+    private void OnDrawGizmosSelected()
     {
-        if (!collision.gameObject.CompareTag("Ground"))
+        if (groundCheck == null)
         {
             return;
         }
 
-        bool touchingFloor = false;
-        for (int i = 0; i < collision.contactCount; i++)
-        {
-            if (collision.GetContact(i).normal.y > 0.5f)
-            {
-                touchingFloor = true;
-                break;
-            }
-        }
-        isGrounded = touchingFloor;
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
     }
 }
