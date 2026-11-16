@@ -26,6 +26,9 @@ public class PlayerController : MonoBehaviour
 
     [Header("Visuals")]
     [SerializeField] private SpriteRenderer spriteRenderer;
+    [Tooltip("Dust puff at the player's feet, fired with Emit() on every jump.")]
+    [SerializeField] private ParticleSystem jumpDust;
+    [SerializeField] private int jumpDustCount = 10;
     [Tooltip("Tick this if the original sprite art faces right. Leave it unticked if it faces left.")]
     [SerializeField] private bool spriteFacesRight = false;
 
@@ -60,11 +63,17 @@ public class PlayerController : MonoBehaviour
         // Input is checked in Update so a quick key press is never missed.
         if (jumpAction.action.WasPressedThisFrame() && isGrounded)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
-            isGrounded = false;
+            Jump();
         }
 
         UpdateFacing();
+    }
+
+    private void Jump()
+    {
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+        isGrounded = false;
+        jumpDust.Emit(jumpDustCount);
     }
 
     private void FixedUpdate()

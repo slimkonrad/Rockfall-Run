@@ -32,7 +32,7 @@ public class Collectible : MonoBehaviour
             return;
         }
 
-        puzzle.Collect(data, pieceId);
+        puzzle.Collect(data, pieceId, transform.position);
         gameObject.SetActive(false);
     }
 }

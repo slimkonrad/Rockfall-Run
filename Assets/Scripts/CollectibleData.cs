@@ -13,8 +13,11 @@ public class CollectibleData : ScriptableObject
     [SerializeField] private int points = 10;
     [Tooltip("Tick for items that count toward opening the gate (keys). Leave unticked for bonus items (coins).")]
     [SerializeField] private bool countsTowardPuzzle;
+    [Tooltip("Color of the sparkle burst when this is picked up.")]
+    [SerializeField] private Color burstColor = Color.white;
 
     public string DisplayName => displayName;
     public int Points => points;
     public bool CountsTowardPuzzle => countsTowardPuzzle;
+    public Color BurstColor => burstColor;
 }
