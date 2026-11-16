@@ -1,88 +1,89 @@
-# Rockfall Run
+# Rockfall Run 2: The Three Keys
 
-**CPSC 386 – Project 1** · Konner Rigby
-**Repository:** https://github.com/slimkonrad/Project-1-CPSC386
-**Engine:** Unity 6 (Universal 2D template, URP 2D Renderer)
+**CPSC 386, Project 2** · Konner Rigby
 
-A single-screen 2D platformer. You play as a pigeon climbing a cave-like level to reach a glowing finish flag while pooled rocks rain down from above. Getting hit restarts the run. Your best completion time is saved and shown on the Main Menu.
-
-## Controls
-
-| Action | Keys |
-|---|---|
-| Move left / right | A / D |
-| Jump | Space or W (only while standing on ground) |
-| Fast-fall (mid-air) | S |
-| Pause / resume | Escape |
+- **Source code:** [github.com/slimkonrad/Rockfall-Run/tree/project-2](https://github.com/slimkonrad/Rockfall-Run/tree/project-2) (branch **project-2**; the main branch is the Project 1 version)
+- **Build:** Windows, submitted as a zip. Unzip and run Rockfall Run.exe.
+- **Engine:** Unity 6.5 (6000.5.9f1), Universal 2D template
 
 ## How to play
 
-1. Click **Start** on the Main Menu.
-2. Climb the three platforms to the top, then drop down the right side of the pillar to the flag.
-3. Avoid the falling rocks. One hit restarts the level.
-4. Reaching the flag shows your time. A new record is saved as your best time.
+Collect all three keys to unlock the gate, then reach the glowing flag. Pooled rocks fall from above, and one hit restarts the level. Coins are optional bonus points, scattered by procedural generation. The best completion time is saved and shown on the Main Menu.
 
----
+| Action | Keys |
+| --- | --- |
+| Move left / right | A / D |
+| Jump | Space or W (only while standing on ground) |
+| Fast-fall in mid-air | S |
+| Pause, resume, music volume | Esc (the volume slider is in the pause menu) |
+
+## Design decisions
+
+Project 2 extends the Project 1 game instead of starting over, so every new system has a job in the same level.
+
+- **Puzzle logic in a pure C# class.** PuzzleTracker has no Unity dependencies and only stores state (a HashSet of key IDs and a score) and raises events. PuzzleController is the thin MonoBehaviour that connects it to the scene. Nothing polls every frame: pickups report in through triggers, and the gate opens from the PuzzleCompleted event.
+- **Data in ScriptableObjects.** Keys and coins share one Collectible script and differ only by their CollectibleData asset (points, whether it counts toward the puzzle, burst color, sound). Adding a new pickup type needs a new asset, not new code.
+- **Gate as its own tilemap.** The gate is painted like the level, but on a separate tilemap that can be switched off in one call when the puzzle is solved.
+- **Procedural coins can't break the level.** Coins are optional bonus points and only spawn on standable surfaces inside the camera view. The three keys are hand-placed, so every seed is beatable.
+- **Animating a child object.** The player sprite is a single photo, so the Animator moves a child Visual object (bob, waddle, squash and stretch) while physics stays on the parent. This keeps the Rigidbody2D and colliders unaffected by animation.
+- **One shared particle system per effect.** Pickup sparkles reuse one particle system moved to each pickup with Emit(), instead of creating effects at runtime.
+- **Original audio.** The music and sound effects were made for this project, so there are no licensing questions.
 
 ## Scripts
 
-All scripts are in `Assets/Scripts`.
+All scripts are in Assets/Scripts. The first group is new in Project 2; the rest are carried over from Project 1.
 
 | Script | Attached to | What it does |
-|---|---|---|
-| `MainMenu.cs` | MenuController (MainMenu scene) | Loads Level1 from the Start button, quits the app from the Quit button, and displays the saved best time from PlayerPrefs. Resets `Time.timeScale` to 1 on load as a safety net. |
-| `PlayerController.cs` | Player | Reads the Move and Jump actions from the `PlayerControls` Input Actions asset and moves the player by setting `Rigidbody2D.linearVelocity` in `FixedUpdate`. Jumping is allowed only when touching Ground from above (contact normal check), which prevents wall-jumping. Holding Down in mid-air fast-falls. Flips the sprite to face the movement direction. Ignores input while the game is paused. |
-| `PlayerTriggerHandler.cs` | Player | `OnTriggerEnter2D` + `CompareTag()`: touching a `Hazard` calls `LevelManager.PlayerDied()`, and touching `Finish` calls `LevelManager.LevelComplete()`. |
-| `SimplePool.cs` | RockPool | Object pool reused from Assignment 3. Pre-creates a set number of rock prefabs in `Awake`, deactivated and parented under the pool. `GetFromPool(position)` reactivates an inactive instance at the given position. It only instantiates a new rock if every pooled rock is already in use. |
-| `RockSpawner.cs` | RockSpawner | Every `spawnInterval` seconds, takes a rock from the pool and places it at a random x just above the top of the camera view. The spawn area is calculated from the camera so rocks never spawn inside the side walls. |
-| `FallingRock.cs` | Rock prefab | Resets the rock's velocity each time it is reused (`OnEnable`). When it touches Ground (`OnTriggerEnter2D` + `CompareTag("Ground")`), or falls below the level, it deactivates itself, which returns it to the pool. |
-| `LevelManager.cs` | LevelManager | Runs the run timer UI, reloads the level when the player dies, and on finishing freezes the game, compares the time against the saved best, saves a new best with `PlayerPrefs.SetFloat` / `PlayerPrefs.Save`, and shows the win panel. Handles the Play Again and Main Menu buttons. |
-| `PauseMenu.cs` | LevelManager | Toggles the pause panel on the Pause action (Escape). Pausing sets `Time.timeScale = 0`, freezing physics, rocks, and the timer. The Resume button unpauses, and Quit to Menu restores time scale and loads the Main Menu. Pausing is disabled once the win panel is showing. |
+| --- | --- | --- |
+| PlayerController | Player | Moves and jumps with the Move and Jump actions from the PlayerControls Input Actions asset, using Rigidbody2D velocity in FixedUpdate. A Physics2D.OverlapCircle at the feet (GroundCheck) gates the jump. Holding S fast-falls. Flips the sprite, fires jump dust and the jump sound, and sends Speed, IsGrounded and VerticalVelocity to the Animator. |
+| PlayerFootsteps | Player | Receives the Footstep Animation Event from the Walk clip and plays a footstep sound and dust puff. Ignores the event when Walk is only lightly weighted in the blend tree. |
+| PuzzleTracker | (pure C#, no GameObject) | Holds the puzzle and score logic: a HashSet of collected key IDs, the score, and ProgressChanged and PuzzleCompleted events. |
+| PuzzleController | PuzzleController | Creates the PuzzleTracker, receives pickups, updates the Keys/Score UI, plays the pickup sparkle and sound, and opens the gate (with burst and sound) when the tracker reports completion. |
+| Collectible | Key and Coin prefabs | On trigger with the Player, reports its CollectibleData and unique ID to PuzzleController and disappears. |
+| CollectibleData | ScriptableObject assets (KeyData, CoinData) | Data for a pickup type: name, points, whether it counts toward the puzzle, burst color and pickup sound. Created with CreateAssetMenu. |
+| CoinSpawner | CoinSpawner | Places coins above walkable ground tiles where Perlin noise is above a threshold. Seed, Randomize Seed, Noise Scale and Threshold are exposed in the Inspector. |
+| AudioManager | AudioManager prefab (both scenes) | Persistent singleton (DontDestroyOnLoad, duplicates destroy themselves). Plays looping music and one-shot sound effects through the MainMixer Music and SFX groups, and saves and restores both volumes with PlayerPrefs. |
+| VolumeSlider | Music slider in the pause menu | Shows the saved volume and updates the AudioManager (and the saved value) when moved. |
+| LevelManager | LevelManager | Timer, restart on death, win panel, and best time saved with PlayerPrefs. (Project 1) |
+| PlayerTriggerHandler | Player | Hazard trigger restarts the level, Finish trigger wins. (Project 1) |
+| PauseMenu | LevelManager | Esc pauses with Time.timeScale = 0; Resume and Quit to Menu buttons. (Project 1) |
+| MainMenu | MenuController | Start and Quit buttons and the best-time label. (Project 1) |
+| SimplePool, RockSpawner, FallingRock | RockPool, RockSpawner, Rock prefab | Pooled falling-rock hazards. (Project 1) |
+| CameraFit | Main Camera | Zooms the camera so the whole level fits any screen shape. (Project 1) |
 
 ## Scenes and key GameObjects
 
-### MainMenu (build index 0)
-- **Canvas** (Scale With Screen Size, 1920×1080): title text, **BestTimeText**, **StartButton**, **QuitButton**.
-- **MenuController**: holds `MainMenu.cs`. Both buttons call its methods through On Click.
-- **EventSystem**: required for UI clicks.
+**MainMenu** (build index 0): title, best-time text, Start and Quit buttons (MenuController), and the AudioManager, which starts the music and survives into Level1.
 
-### Level1 (build index 1)
-- **Grid → Ground**: the painted Tilemap (floor, side walls, three platforms, and the pillar). It has a Tilemap Collider 2D merged through a Composite Collider 2D (static Rigidbody2D) so the player doesn't catch on tile seams. Tagged **Ground**.
-- **Player**: pigeon sprite with Rigidbody2D (gravity 3, continuous collision, rotation frozen), Box Collider 2D sized to the body, and a zero-friction Physics Material 2D (**NoFriction**) so the player doesn't stick to walls. Holds `PlayerController` and `PlayerTriggerHandler`. Child **Lantern** is a Spot Light 2D that follows the player.
-- **RockPool**: holds `SimplePool` with the **Rock** prefab. All pooled rocks appear as its children.
-- **RockSpawner**: holds `RockSpawner`, which references RockPool.
-- **Rock prefab** (`Assets/Prefabs`): stone sprite, Rigidbody2D, trigger collider, `FallingRock`. Tag **Hazard**, layer **Rocks**.
-- **Finish**: flag sprite with a trigger Box Collider 2D, tagged **Finish**. Child **Spot Light 2D** gives it a warm orange glow.
-- **Global Light 2D**: intensity 0.4 to darken the level. Paired with a dark camera background, the flag and lantern lights stand out.
-- **Canvas**: **TimerText**; **WinPanel** (WinText, Play Again, Main Menu); **PausePanel** (Paused text, Resume, Quit to Menu).
-- **LevelManager**: holds `LevelManager` and `PauseMenu`.
+**Level1** (build index 1):
 
-### How they interact
-RockSpawner pulls rocks from RockPool. Each rock falls and returns itself to the pool when it lands. If a rock (Hazard) touches the Player first, PlayerTriggerHandler tells LevelManager to restart. When the Player touches the Finish flag, LevelManager stops the timer, saves the best time, and shows the win panel. MainMenu reads that same saved value. PauseMenu freezes everything through `Time.timeScale`.
+- **Grid > Ground**: the level tilemap (floor, walls, platforms) with Tilemap Collider 2D, on the Ground layer and tag.
+- **Grid > Gate**: a column of lock blocks on its own tilemap and collider, blocking the flag until all keys are collected.
+- **Player**: Rigidbody2D, Box Collider 2D, PlayerController, PlayerTriggerHandler, PlayerFootsteps and an Animator (Player controller). Children: **Visual** (sprite, moved by the animation clips), **GroundCheck** (OverlapCircle point), **JumpDust** (particles) and **Lantern** (2D light).
+- **Key, Key 2, Key 3**: hand-placed Key prefabs using KeyData.
+- **CoinSpawner**: generates Coin prefabs (CoinData) at start.
+- **PuzzleController**: owns the PuzzleTracker; linked to the Gate, the ProgressText UI, PickupBurst and GateBurst.
+- **RockPool, RockSpawner, Finish, LevelManager, Canvas** (timer, keys/score, win and pause panels with the volume slider), and an **AudioManager** copy that removes itself when one already exists.
 
----
+**How they interact:** touching a key or coin calls PuzzleController.Collect, which fires the sparkle and sound and updates the PuzzleTracker. The tracker raises ProgressChanged to refresh the UI and, on the third key, PuzzleCompleted, which switches off the Gate. The player can then reach the Finish trigger, and LevelManager shows the win panel and saves the best time. Rocks touching the player restart the level. The Animator picks Idle/Walk, Jump or Fall from the parameters PlayerController sets each frame.
 
-## Requirement checklist
+## Requirements
 
-1. **Scenes and scene management:** MainMenu's Start button loads Level1. Level1 returns to MainMenu through the pause menu's Quit to Menu button and the win panel's Main Menu button (`SceneManager.LoadScene`).
-2. **Input System player control:** the Player moves using the `Assets/Settings/PlayerControls.inputactions` asset (Player map: Move, Jump, Pause), referenced through `InputActionReference` fields, with Rigidbody2D/Collider2D physics.
-3. **Tilemap level layout:** the entire level (floor, walls, platforms, pillar) is the **Ground** Tilemap with a Tilemap Collider 2D (merged by a Composite Collider 2D).
-4. **Prefab pooling:** the Rock prefab is pooled by `SimplePool` (Assignment 3 pattern). During play, RockPool's child rocks switch on and off while the count stays the same, so instances are reused rather than created and destroyed.
-5. **Tags, layers, and triggers:** `OnTriggerEnter2D` + `CompareTag()` drive dying (Hazard), winning (Finish), and rock despawning (Ground). The Layer Collision Matrix has **Rocks vs. Rocks** disabled so rocks pass through each other.
-6. **Pause menu:** a Canvas UI panel opened with Escape that sets `Time.timeScale = 0`, with working Resume and Quit to Menu buttons.
-7. **PlayerPrefs persistence:** the best completion time is saved under the key `BestTime` and shown on the Main Menu. It persists after closing and relaunching the build.
-8. **Lighting:** Global Light 2D dims the level, a Spot Light 2D on the finish flag highlights the goal, and a Spot Light 2D "lantern" follows the player.
+| # | Requirement | How it is met |
+| --- | --- | --- |
+| 1 | Platformer movement | PlayerController reads Move and Jump from the PlayerControls Input Actions asset and moves a Rigidbody2D. Jumping is gated by Physics2D.OverlapCircle at GroundCheck on the Ground layer, so there is no mid-air jump. |
+| 2 | Puzzle state tracking | PuzzleTracker stores collected key IDs in a HashSet, driven by Collectible triggers (no per-frame checks). Its PuzzleCompleted event opens the gate; reaching the flag then shows the win screen. |
+| 3 | Audio and persistence | Music and five sound effects (jump, footstep, coin, key, gate) play through MainMixer's Music and SFX groups. AudioManager uses DontDestroyOnLoad with a duplicate guard, so music continues from MainMenu into Level1. Music and SFX volumes are saved with PlayerPrefs and restored on launch. |
+| 4 | ScriptableObject and pure C# | CollectibleData (CreateAssetMenu) has two assets used in the game, KeyData and CoinData. PuzzleTracker is a pure C# class used by PuzzleController. |
+| 5 | Animator and blend tree | The Player controller has Locomotion (1D blend tree: Idle at Speed 0, Walk at Speed 7), Jump and Fall states, driven by Speed, IsGrounded and VerticalVelocity set from PlayerController. |
+| 6 | Animation event | The Walk clip has Footstep Animation Events at frames 20 and 40, which play a footstep sound and dust puff through PlayerFootsteps. |
+| 7 | Particle effect from code | Jump dust (Emit on jump), pickup sparkle in the item's color (Emit at the pickup), and a gold gate burst (Play when the gate opens). |
+| 8 | Procedural generation | CoinSpawner places coins with Perlin noise. Seed, Noise Scale and Threshold are exposed in the Inspector. Coins are optional and keys are hand-placed, so the level is always beatable. |
 
----
+## Third-party assets, packages and assistance
 
-## Third-party assets, packages, and assistance
-
-- **Kenney – Pixel Platformer** (https://kenney.nl/assets/pixel-platformer), CC0 license. Used for all level tiles and the finish flag.
-- **Player sprite:** custom sprite made from a photo of a friend (used with their permission), cut out from its background and resized.
-- **Rock sprite:** custom 18×18 pixel-art stone created for this project.
-- **Unity packages:** Input System, Universal Render Pipeline (2D Renderer and 2D Lights), 2D Tilemap Editor, TextMeshPro. All are standard Unity packages included with the Universal 2D template.
-- **AI assistance:** Claude (Anthropic) was used as a step-by-step guide during development. It helped plan the game, draft and explain the scripts, walk through the Unity Editor setup, and create the stone and player sprites.
-
-## Running the build
-
-Unzip the archive and run `Rockfall Run.exe` (Windows). The Quit button on the Main Menu closes the game; it only works in the built version, not in the Unity Editor.
+- **[Kenney Pixel Platformer](https://kenney.nl/assets/pixel-platformer)** (CC0): level tiles, keys, gems used as coins, lock blocks and the finish flag.
+- **Player sprite:** custom sprite made from a photo of a friend, used with his permission.
+- **Rock sprite, music and sound effects:** original assets made for this project.
+- **Unity packages:** Input System, Universal Render Pipeline (2D Renderer and 2D Lights), 2D Tilemap Editor, TextMeshPro and the built-in Audio Mixer, all standard with the Universal 2D template.
+- **AI assistance:** Claude (Anthropic) was used as a step-by-step guide. It helped plan the design, draft and explain the scripts, walk through the Unity Editor setup, and create the rock sprite, music and sound effects.
